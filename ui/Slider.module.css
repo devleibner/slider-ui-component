@@ -1,0 +1,25 @@
+.slider {
+  height: var(--slider-height);
+  background-color: var(--slider-color-after);
+  position: relative;
+  border-radius: 4px;
+  user-select: none;
+}
+
+.thumb {
+  position: absolute;
+  width: 20px;
+  height: 20px;
+  background-color: var(--slider-color-before);
+  border-radius: 50%;
+  cursor: pointer;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+}
+
+.sliderBefore {
+  background: var(--slider-color-before);
+  height: var(--slider-height);
+  border-radius: 4px;
+}

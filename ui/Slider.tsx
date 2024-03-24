@@ -1,6 +1,14 @@
 'use client';
 
-import { Dispatch, SetStateAction, useEffect, useRef, useState } from 'react';
+import {
+  Dispatch,
+  SetStateAction,
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from 'react';
 
 import styles from './Slider.module.css';
 
@@ -29,46 +37,80 @@ const Slider: React.FC<SliderProps> = ({
 }: SliderProps) => {
   const sliderRef = useRef<HTMLDivElement | null>(null);
   const [currentValue, setCurrentValue] = useState(value);
-  const percentage = ((currentValue - min) / (max - min)) * 100;
+  const changeRef = useRef<Function>();
+  changeRef.current = onChange;
 
-  const updateValue = (clientX: number) => {
-    if (!sliderRef.current) return;
-    const { left, width } = sliderRef.current.getBoundingClientRect();
-    const newValue = Math.min(
-      max,
-      Math.max(min, min + ((clientX - left) / width) * (max - min))
-    );
+  const percentage = useMemo(
+    () => ((currentValue - min) / (max - min)) * 100,
+    [currentValue, min, max]
+  );
 
-    setCurrentValue(newValue);
-  };
+  const getPositionFromEvent = useCallback((e) => {
+    if (e.touches && e.touches.length > 0) {
+      return e.touches[0].clientX;
+    }
+    return e.clientX;
+  }, []);
 
-  const handleMouseDown = (e: React.MouseEvent) => {
-    e.preventDefault();
-    updateValue(e.clientX);
-    const handleMouseMove = (e: MouseEvent) => updateValue(e.clientX);
-    const handleMouseUp = () => {
-      document.removeEventListener('mousemove', handleMouseMove);
-      document.removeEventListener('mouseup', handleMouseUp);
-    };
-    document.addEventListener('mousemove', handleMouseMove);
-    document.addEventListener('mouseup', handleMouseUp);
-  };
+  const updateValue = useCallback(
+    (clientX: number) => {
+      if (!sliderRef.current) return;
+      const { left, width } = sliderRef.current.getBoundingClientRect();
+      const newValue = Math.min(
+        max,
+        Math.max(min, min + ((clientX - left) / width) * (max - min))
+      );
+
+      setCurrentValue(newValue);
+    },
+    [min, max]
+  );
+
+  const handleMove = useCallback(
+    (e) => {
+      const clientX = getPositionFromEvent(e);
+      updateValue(clientX);
+    },
+    [updateValue, getPositionFromEvent]
+  );
+
+  const handleEnd = useCallback(() => {
+    document.removeEventListener('mousemove', handleMove);
+    document.removeEventListener('touchmove', handleMove);
+    document.removeEventListener('mouseup', handleEnd);
+    document.removeEventListener('touchend', handleEnd);
+  }, [handleMove]);
+
+  const handleStart = useCallback(
+    (e) => {
+      e.preventDefault();
+      const clientX = getPositionFromEvent(e);
+      updateValue(clientX);
+      document.addEventListener('mousemove', handleMove);
+      document.addEventListener('touchmove', handleMove);
+      document.addEventListener('mouseup', handleEnd);
+      document.addEventListener('touchend', handleEnd);
+    },
+    [updateValue, handleMove, handleEnd, getPositionFromEvent]
+  );
 
   useEffect(() => {
-    onChange && onChange(currentValue);
-  }, [currentValue]);
+    changeRef.current && changeRef.current(currentValue);
+  }, [currentValue, changeRef]);
 
   return (
     <div
       ref={sliderRef}
       role="slider"
-      onMouseDown={handleMouseDown}
+      aria-valuenow={currentValue}
+      onMouseDown={handleStart}
+      onTouchStart={handleStart}
       className={styles.slider}
       style={{
         width,
       }}
     >
-      <div
+      <button
         className={styles.thumb}
         style={{
           left: `${percentage}%`,
